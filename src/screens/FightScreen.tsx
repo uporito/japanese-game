@@ -1,34 +1,30 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { AnswerGrid } from "../components/AnswerGrid";
 import { KanjiCard } from "../components/KanjiCard";
 import { LivesDisplay } from "../components/LivesDisplay";
 import { ProgressBar } from "../components/ProgressBar";
+import { ENCOUNTER_INFO } from "../game/encounters";
+import type { FightSetup } from "../game/fightEngine";
+import type { FightOutcome } from "../game/runEngine";
 import { useFightEngine } from "../game/useFightEngine";
-import type { VocabEntry } from "../game/types";
-
-export interface FightResult {
-  outcome: "won" | "lost";
-  correctCount: number;
-  answeredCount: number;
-  totalQuestions: number;
-  mistakes: VocabEntry[];
-}
 
 interface FightScreenProps {
-  pool: readonly VocabEntry[];
-  onEnd: (result: FightResult) => void;
+  setup: FightSetup;
+  context: string;
+  headerExtras: ReactNode;
+  onEnd: (outcome: FightOutcome) => void;
 }
 
-export function FightScreen({ pool, onEnd }: FightScreenProps) {
-  const { state, question, answer } = useFightEngine(pool);
+export function FightScreen({ setup, context, headerExtras, onEnd }: FightScreenProps) {
+  const { state, question, answer } = useFightEngine(setup);
 
   useEffect(() => {
     if (state.status === "playing") return;
     onEnd({
-      outcome: state.status,
+      won: state.status === "won",
+      livesLeft: state.lives,
       correctCount: state.correctCount,
       answeredCount: state.correctCount + state.mistakes.length,
-      totalQuestions: state.questions.length,
       mistakes: state.mistakes,
     });
   }, [state, onEnd]);
@@ -43,13 +39,18 @@ export function FightScreen({ pool, onEnd }: FightScreenProps) {
   }, [state.mistakes, state.questions]);
 
   const tookHit = state.feedback !== null && !state.feedback.correct;
+  const info = ENCOUNTER_INFO[state.type];
 
   return (
     <div className={`screen fight ${tookHit ? "fight--hurt" : ""}`}>
       <header className="fight__header">
-        <LivesDisplay lives={state.lives} maxLives={state.config.maxLives} />
-        <div className="fight__counter">
-          {state.questionIndex + 1} / {state.questions.length}
+        <LivesDisplay lives={state.lives} maxLives={state.maxLives} />
+        <div className="fight__context">{context}</div>
+        <div className="fight__header-right">
+          {headerExtras}
+          <div className="fight__counter">
+            {state.questionIndex + 1} / {state.questions.length}
+          </div>
         </div>
       </header>
 
@@ -61,13 +62,20 @@ export function FightScreen({ pool, onEnd }: FightScreenProps) {
       />
 
       <main className="fight__arena">
-        <KanjiCard key={question.entry.id} kanji={question.entry.kanji} feedback={state.feedback} />
+        <div className="fight__prompt">
+          <span className="fight__prompt-icon" lang="ja">
+            {info.icon}
+          </span>
+          {info.prompt}
+        </div>
+        <KanjiCard key={question.entry.id} word={question.entry.word} feedback={state.feedback} />
       </main>
 
       <AnswerGrid
         choices={question.choices}
-        correctAnswer={question.entry.meaning}
+        correctAnswer={question.answer}
         feedback={state.feedback}
+        japanese={question.type === "reading"}
         onAnswer={answer}
       />
     </div>

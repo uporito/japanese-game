@@ -1,16 +1,26 @@
+import type { WordClass } from "../data/wordClass";
+
 export type JlptLevel = "N5" | "N4" | "N3";
 
 export interface VocabEntry {
   id: string;
-  kanji: string;
+  word: string;
   reading: string;
-  meaning: string;
+  meanings: string[];
+  gloss: string;
   level: JlptLevel;
+  wordClass: WordClass;
+  isKana: boolean;
+  readingQuizzable: boolean;
 }
+
+export type EncounterType = "meaning" | "reading";
 
 export interface Question {
   entry: VocabEntry;
+  type: EncounterType;
   choices: string[];
+  answer: string;
 }
 
 export type FightStatus = "playing" | "won" | "lost";
@@ -20,13 +30,9 @@ export interface AnswerFeedback {
   correct: boolean;
 }
 
-export interface FightConfig {
-  questionCount: number;
-  maxLives: number;
-}
-
 export interface FightState {
-  config: FightConfig;
+  type: EncounterType;
+  maxLives: number;
   questions: Question[];
   questionIndex: number;
   lives: number;

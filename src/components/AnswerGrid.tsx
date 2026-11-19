@@ -5,10 +5,11 @@ interface AnswerGridProps {
   choices: string[];
   correctAnswer: string;
   feedback: AnswerFeedback | null;
+  japanese: boolean;
   onAnswer: (choice: string) => void;
 }
 
-export function AnswerGrid({ choices, correctAnswer, feedback, onAnswer }: AnswerGridProps) {
+export function AnswerGrid({ choices, correctAnswer, feedback, japanese, onAnswer }: AnswerGridProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const index = Number(event.key) - 1;
@@ -32,9 +33,10 @@ export function AnswerGrid({ choices, correctAnswer, feedback, onAnswer }: Answe
         return (
           <button
             key={choice}
-            className={`answer ${modifier}`}
+            className={`answer ${japanese ? "answer--ja" : ""} ${modifier}`}
             disabled={feedback !== null}
             onClick={() => onAnswer(choice)}
+            lang={japanese ? "ja" : undefined}
           >
             <span className="answer__key">{i + 1}</span>
             {choice}

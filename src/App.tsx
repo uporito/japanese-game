@@ -1,36 +1,22 @@
 import { useCallback, useState } from "react";
-import { N5_VOCAB } from "./data/n5Vocab";
-import { FightScreen, type FightResult } from "./screens/FightScreen";
-import { ResultScreen } from "./screens/ResultScreen";
-import { StartScreen } from "./screens/StartScreen";
+import { LibraryScreen } from "./screens/LibraryScreen";
+import { MenuScreen } from "./screens/MenuScreen";
+import { RunScreen } from "./screens/RunScreen";
 
-type AppState =
-  | { screen: "start" }
-  | { screen: "fight"; fightId: number }
-  | { screen: "result"; result: FightResult };
+type AppState = { screen: "menu" } | { screen: "library" } | { screen: "run"; runId: number };
 
 export function App() {
-  const [appState, setAppState] = useState<AppState>({ screen: "start" });
+  const [appState, setAppState] = useState<AppState>({ screen: "menu" });
 
-  const startFight = useCallback(() => {
-    setAppState({ screen: "fight", fightId: Date.now() });
-  }, []);
-
-  const endFight = useCallback((result: FightResult) => {
-    setAppState({ screen: "result", result });
-  }, []);
+  const startRun = useCallback(() => setAppState({ screen: "run", runId: Date.now() }), []);
+  const toMenu = useCallback(() => setAppState({ screen: "menu" }), []);
 
   switch (appState.screen) {
-    case "start":
-      return <StartScreen onStart={startFight} />;
-    case "fight":
-      return <FightScreen key={appState.fightId} pool={N5_VOCAB} onEnd={endFight} />;
-    case "result":
-      return (
-        <ResultScreen
-          result={appState.result}
-          onPlayAgain={() => setAppState({ screen: "start" })}
-        />
-      );
+    case "menu":
+      return <MenuScreen onStartRun={startRun} onOpenLibrary={() => setAppState({ screen: "library" })} />;
+    case "library":
+      return <LibraryScreen onBack={toMenu} />;
+    case "run":
+      return <RunScreen key={appState.runId} onNewRun={startRun} onExit={toMenu} />;
   }
 }

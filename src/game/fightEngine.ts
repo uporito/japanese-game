@@ -1,49 +1,45 @@
-import type { FightAction, FightConfig, FightState, Question, VocabEntry } from "./types";
+import { buildQuestion, canAsk } from "./questions";
+import { shuffle, type Rng } from "./random";
+import type { EncounterType, FightAction, FightState, VocabEntry } from "./types";
 
-export const DEFAULT_FIGHT_CONFIG: FightConfig = {
-  questionCount: 20,
-  maxLives: 3,
-};
-
-const CHOICES_PER_QUESTION = 4;
-
-export function shuffle<T>(items: readonly T[]): T[] {
-  const result = [...items];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
+export interface FightSetup {
+  type: EncounterType;
+  words: readonly VocabEntry[];
+  pool: readonly VocabEntry[];
+  startingLives: number;
+  maxLives: number;
+  rng?: Rng;
 }
 
-export function buildQuestion(entry: VocabEntry, pool: readonly VocabEntry[]): Question {
-  const distractors = shuffle(
-    pool.filter((other) => other.id !== entry.id && other.meaning !== entry.meaning),
-  )
-    .map((other) => other.meaning)
-    .filter((meaning, i, all) => all.indexOf(meaning) === i)
-    .slice(0, CHOICES_PER_QUESTION - 1);
-
-  return { entry, choices: shuffle([entry.meaning, ...distractors]) };
-}
-
-export function createFight(
+/** Picks fight words the encounter can ask about, skipping already-used ids and duplicate spellings. */
+export function selectWords(
   pool: readonly VocabEntry[],
-  config: FightConfig = DEFAULT_FIGHT_CONFIG,
-): FightState {
-  if (pool.length < Math.max(config.questionCount, CHOICES_PER_QUESTION)) {
-    throw new Error(`Vocab pool too small: ${pool.length} entries`);
+  type: EncounterType,
+  count: number,
+  usedIds: ReadonlySet<string>,
+  rng: Rng = Math.random,
+): VocabEntry[] {
+  const picked: VocabEntry[] = [];
+  const spellings = new Set<string>();
+  for (const entry of shuffle(pool, rng)) {
+    if (picked.length === count) break;
+    if (usedIds.has(entry.id) || spellings.has(entry.word) || !canAsk(type, entry)) continue;
+    picked.push(entry);
+    spellings.add(entry.word);
   }
+  if (picked.length < count) {
+    throw new Error(`Only ${picked.length} of ${count} ${type} words available`);
+  }
+  return picked;
+}
 
-  const questions = shuffle(pool)
-    .slice(0, config.questionCount)
-    .map((entry) => buildQuestion(entry, pool));
-
+export function createFight({ type, words, pool, startingLives, maxLives, rng }: FightSetup): FightState {
   return {
-    config,
-    questions,
+    type,
+    maxLives,
+    questions: words.map((entry) => buildQuestion(type, entry, pool, rng)),
     questionIndex: 0,
-    lives: config.maxLives,
+    lives: startingLives,
     correctCount: 0,
     status: "playing",
     feedback: null,
@@ -51,7 +47,7 @@ export function createFight(
   };
 }
 
-export function currentQuestion(state: FightState): Question {
+export function currentQuestion(state: FightState) {
   return state.questions[state.questionIndex];
 }
 
@@ -62,7 +58,7 @@ export function fightReducer(state: FightState, action: FightAction): FightState
     case "ANSWER": {
       if (state.feedback) return state;
       const question = currentQuestion(state);
-      const correct = action.choice === question.entry.meaning;
+      const correct = action.choice === question.answer;
       return {
         ...state,
         feedback: { choice: action.choice, correct },
